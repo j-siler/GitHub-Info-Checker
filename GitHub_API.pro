@@ -9,10 +9,15 @@ CONFIG += c++1z
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    InfoBeamer_API_Types.cpp \
+    device.cpp \
     main.cpp \
     mainwindow.cpp
 
 HEADERS += \
+    InfoBeamerParams.hpp \
+    InfoBeamer_API_Types.hpp \
+    device.hpp \
     mainwindow.h
 
 FORMS += \
@@ -26,3 +31,6 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 win32:RC_ICONS = icon.ico
 RESOURCES += \
     resource.qrc
+
+DISTFILES += \
+    flow.txt

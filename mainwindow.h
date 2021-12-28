@@ -7,6 +7,10 @@
 #include <QNetworkReply>
 #include <QByteArray>
 #include <QPixmap>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QJsonArray>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -27,8 +31,23 @@ private slots:
     void readDataForRepo();
     void finishedGettingRepos();
     void finishReading();
+    void finishReadingDevices();
+    void finishReadingPackages();
+    void finishReadingSetups();
+    void finishReadingAssets();
+    void finishReadingAccount();
     void setUserImage();
     void on_actionAbout_Qt_triggered();
+
+
+    void on_devicesButton_clicked();
+    void on_packagesButton_clicked();
+
+    void on_setupsButton_clicked();
+
+    void on_assetsButton_clicked();
+
+    void on_acctInfoButton_clicked();
 
 private:
     Ui::MainWindow *ui;
@@ -37,4 +56,5 @@ private:
     QNetworkReply *repoReply;
     QByteArray dataBuffer;
     QPixmap *img;
+    QJsonObject deviceJson, packageJson, setupJson, assetJson, acctJason;
 };

@@ -1,11 +1,18 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QJsonValue>
-#include <QJsonArray>
+
 #include <QInputDialog>
 #include <QMessageBox>
+#include <QDebug>
+
+#include <iostream>
+#include <vector>
+
+#include "InfoBeamerParams.hpp"
+
+#include "device.hpp"
+
+using namespace InfoBeamer;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -37,6 +44,22 @@ void MainWindow::clearValues()
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+static QByteArray const authHeader()
+{
+    QString concatenated = ":";
+    concatenated += API_KEY.c_str();
+    QByteArray data = concatenated.toLocal8Bit().toBase64();
+    QString headerData = "Basic " + data;
+    return headerData.toLocal8Bit();
+}
+
+const QByteArray AUTHHEADERVAL=authHeader();
+
+void addBasicAuth(QNetworkRequest &req)
+{
+    req.setRawHeader("Authorization", AUTHHEADERVAL);
 }
 
 
@@ -76,11 +99,11 @@ void MainWindow::finishedGettingRepos()
         ui->repoBox->setValue(repoInfo.size());
         for(int i{0}; i < ui->repoBox->value(); ++i){
             auto repo = repoInfo.at(i).toObject();
-//            if(repo.value("name") == QJsonValue::Undefined){
-//                qDebug() << "No Repo associated with Account!";
-//                QMessageBox::information(this,"No Repo","No Repository associated with current account!");
-//                return;
-//            }
+            //            if(repo.value("name") == QJsonValue::Undefined){
+            //                qDebug() << "No Repo associated with Account!";
+            //                QMessageBox::information(this,"No Repo","No Repository associated with current account!");
+            //                return;
+            //            }
             QString repoName = repo.value("name").toString();
             ui->repoList->addItem(repoName);
         }
@@ -128,6 +151,186 @@ void MainWindow::finishReading()
     }
 }
 
+static void printJsonValue(const QJsonValue &value, QString path);
+static void printJsonArray(const QJsonArray &array, QString prevPath);
+static void printJsonObject(const QJsonObject &obj, QString prevPath="")
+{
+    for (const auto &k: obj.keys())
+    {
+        QString path(prevPath);
+        if(path.size()>0)
+            path+='.';
+        path+=k;
+        const QJsonValue &value=obj[k];
+        switch (value.type())
+        {
+        //Leaf nodes
+        case QJsonValue::Null:
+        case QJsonValue::Bool:
+        case QJsonValue::Double:
+        case QJsonValue::String:
+        case QJsonValue::Undefined:
+        default:
+            printJsonValue(value, path);
+            break;
+
+        case QJsonValue::Array:
+            printJsonArray(value.toArray(), path);
+            break;
+
+        case QJsonValue::Object:
+            printJsonObject(value.toObject(), path);
+            break;
+        }
+    }
+}
+
+//Process leaf nodes
+static void printJsonValue(const QJsonValue &value, QString path)
+{
+    std::cerr << path.toStdString() << "=";
+    switch (value.type())
+    {
+    //Leaf nodes
+    case QJsonValue::Null:
+        std::cerr << "Null";
+        break;
+    case QJsonValue::Bool:
+        std::cerr << "Bool(" << (value.toBool() ? "true)" : "false)") << ")";
+        break;
+    case QJsonValue::Type::Double:
+        std::cerr << "Double(" << value.toDouble()<< ")";
+        break;
+    case QJsonValue::Type::String:
+        std::cerr << "String(\"" << value.toString().toStdString() << "\")";
+        break;
+    case QJsonValue::Type::Undefined:
+        std::cerr << "Undefined";
+        break;
+
+    case QJsonValue::Type::Array:
+    case QJsonValue::Type::Object:
+        std::cerr << "Program Error!!!!  " << __func__ << " called with aggregate QJsonValue";
+
+    default:
+        std::cerr << "Bad Value!!!! Not a QJsonValue enumerated type";
+        printJsonArray(value.toArray(), path);
+        break;
+    }
+
+    std::cerr << std::endl;
+}
+
+static void printJsonArray(const QJsonArray &array, QString prevPath)
+{
+    for(int i=0; i<array.size(); i++)
+    {
+        QString path(prevPath);
+        path+="[";
+        path+=std::to_string(i).c_str();
+        path+="]";
+        const QJsonValue &value(array[i]);
+        switch (value.type())
+        {
+        case QJsonValue::Object:
+            printJsonObject(value.toObject(), path);
+            break;
+        case QJsonValue::Array:
+            printJsonArray(value.toArray(), path);
+            break;
+        default:
+            printJsonValue(value, path);
+        }
+    }
+}
+
+void MainWindow::finishReadingDevices()
+{
+    if(netReply->error() != QNetworkReply::NoError){
+        qDebug() << "Error : " << netReply->errorString();
+        QMessageBox::warning(this,"Error",QString("Request[Error] : %1").arg(netReply->errorString()));
+    }else{
+
+        //CONVERT THE DATA FROM A JSON DOC TO A JSON OBJECT
+        deviceJson = QJsonDocument::fromJson(dataBuffer).object();
+        qDebug() << __func__;
+        qDebug() << deviceJson;
+        printJsonObject(deviceJson);
+        try
+        {
+            Device::poplulate(deviceJson);
+        }
+        catch (const DeviceException &e)
+        {
+            qDebug() << __func__
+                     << __FILE_NAME__
+                     << (QString("line ")+std::to_string(__LINE__).c_str())+": "
+                     << "Device::populate failed:"
+                     << e.what();
+        }
+    }
+}
+
+void MainWindow::finishReadingPackages()
+{
+    if(netReply->error() != QNetworkReply::NoError){
+        qDebug() << "Error : " << netReply->errorString();
+        QMessageBox::warning(this,"Error",QString("Request[Error] : %1").arg(netReply->errorString()));
+    }else{
+
+        //CONVERT THE DATA FROM A JSON DOC TO A JSON OBJECT
+        deviceJson = QJsonDocument::fromJson(dataBuffer).object();
+        qDebug() << __func__;
+        qDebug() << deviceJson;
+        printJsonObject(deviceJson);
+    }
+}
+
+void MainWindow::finishReadingSetups()
+{
+    if(netReply->error() != QNetworkReply::NoError){
+        qDebug() << "Error : " << netReply->errorString();
+        QMessageBox::warning(this,"Error",QString("Request[Error] : %1").arg(netReply->errorString()));
+    }else{
+
+        //CONVERT THE DATA FROM A JSON DOC TO A JSON OBJECT
+        deviceJson = QJsonDocument::fromJson(dataBuffer).object();
+        qDebug() << __func__;
+        qDebug() << deviceJson;
+        printJsonObject(deviceJson);
+    }
+}
+
+void MainWindow::finishReadingAssets()
+{
+    if(netReply->error() != QNetworkReply::NoError){
+        qDebug() << "Error : " << netReply->errorString();
+        QMessageBox::warning(this,"Error",QString("Request[Error] : %1").arg(netReply->errorString()));
+    }else{
+
+        //CONVERT THE DATA FROM A JSON DOC TO A JSON OBJECT
+        deviceJson = QJsonDocument::fromJson(dataBuffer).object();
+        qDebug() << __func__;
+        qDebug() << deviceJson;
+        printJsonObject(deviceJson);
+    }
+}
+
+void MainWindow::finishReadingAccount()
+{
+    if(netReply->error() != QNetworkReply::NoError){
+        qDebug() << "Error : " << netReply->errorString();
+        QMessageBox::warning(this,"Error",QString("Request[Error] : %1").arg(netReply->errorString()));
+    }else{
+
+        //CONVERT THE DATA FROM A JSON DOC TO A JSON OBJECT
+        deviceJson = QJsonDocument::fromJson(dataBuffer).object();
+        qDebug() << __func__;
+        qDebug() << deviceJson;
+        printJsonObject(deviceJson);
+    }
+}
+
 void MainWindow::setUserImage()
 {
     qDebug() << "Pixmap stuff starts";
@@ -142,3 +345,57 @@ void MainWindow::on_actionAbout_Qt_triggered()
     QMessageBox::aboutQt(this,"About Qt");
 }
 
+
+void MainWindow::on_devicesButton_clicked()
+{
+    QNetworkRequest req{QUrl(API_URL+"device/list")};
+    addBasicAuth(req);
+    dataBuffer.clear();
+    netReply = netManager->get(req);
+    connect(netReply,&QNetworkReply::readyRead,this,&MainWindow::readData);
+    connect(netReply,&QNetworkReply::finished,this,&MainWindow::finishReadingDevices);
+}
+
+void MainWindow::on_packagesButton_clicked()
+{
+    QNetworkRequest req{QUrl(API_URL+"package/list")};
+    addBasicAuth(req);
+    dataBuffer.clear();
+    netReply = netManager->get(req);
+    connect(netReply,&QNetworkReply::readyRead,this,&MainWindow::readData);
+    connect(netReply,&QNetworkReply::finished,this,&MainWindow::finishReadingDevices);
+}
+
+
+
+void MainWindow::on_setupsButton_clicked()
+{
+    QNetworkRequest req{QUrl(API_URL+"setup/list")};
+    addBasicAuth(req);
+    dataBuffer.clear();
+    netReply = netManager->get(req);
+    connect(netReply,&QNetworkReply::readyRead,this,&MainWindow::readData);
+    connect(netReply,&QNetworkReply::finished,this,&MainWindow::finishReadingDevices);
+}
+
+
+void MainWindow::on_assetsButton_clicked()
+{
+    QNetworkRequest req{QUrl(API_URL+"asset/list")};
+    addBasicAuth(req);
+    dataBuffer.clear();
+    netReply = netManager->get(req);
+    connect(netReply,&QNetworkReply::readyRead,this,&MainWindow::readData);
+    connect(netReply,&QNetworkReply::finished,this,&MainWindow::finishReadingDevices);
+}
+
+
+void MainWindow::on_acctInfoButton_clicked()
+{
+    QNetworkRequest req{QUrl(API_URL+"account")};
+    addBasicAuth(req);
+    dataBuffer.clear();
+    netReply = netManager->get(req);
+    connect(netReply,&QNetworkReply::readyRead,this,&MainWindow::readData);
+    connect(netReply,&QNetworkReply::finished,this,&MainWindow::finishReadingDevices);
+}

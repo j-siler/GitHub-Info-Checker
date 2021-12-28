@@ -506,6 +506,50 @@ font: 75 10pt &quot;Verdana&quot;;</string>
       </item>
      </layout>
     </item>
+    <item>
+     <widget class="QGroupBox" name="groupBox_4">
+      <property name="title">
+       <string>GroupBox</string>
+      </property>
+      <layout class="QHBoxLayout" name="horizontalLayout_10">
+       <item>
+        <widget class="QPushButton" name="devicesButton">
+         <property name="text">
+          <string>List Devices</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="packagesButton">
+         <property name="text">
+          <string>List Packages</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="setupsButton">
+         <property name="text">
+          <string>List Setups</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="assetsButton">
+         <property name="text">
+          <string>List Assets</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="acctInfoButton">
+         <property name="text">
+          <string>List Account</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menuBar">
@@ -514,7 +558,7 @@ font: 75 10pt &quot;Verdana&quot;;</string>
      <x>0</x>
      <y>0</y>
      <width>622</width>
-     <height>20</height>
+     <height>37</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuAbout">

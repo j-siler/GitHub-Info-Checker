@@ -1,0 +1,8 @@
+
+1 Get rppt QJsonObject
+2 Call Process Object with root json object as received from IB via API call.
+
+2 For eack of the Root object call Process Object, with Path=root ("/"), Key=null
+for each child
+save name
+if type = Object:
